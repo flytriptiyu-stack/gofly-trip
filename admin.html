@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>飛趣旅遊 GO FLY TRIP - 後台方案管理系統</title>
+  <link rel="icon" type="image/png" href="chick.png">
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --danger: #ef4444;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --accent-red: #dc2626;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 1.5rem 1rem; min-height: 100vh; }
+    .admin-container { max-width: 900px; margin: 0 auto; }
+
+    .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; background: #fff; padding: 1rem 1.5rem; border-radius: 12px; border: 1px solid var(--border); }
+    .header-title { font-size: 1.4rem; color: var(--primary); font-weight: bold; }
+
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    
+    .notice-bar { background-color: #fef3c7; border-left: 4px solid var(--warning); padding: 0.8rem 1rem; margin-bottom: 1rem; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-muted); }
+    .form-group input, .form-group textarea { width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; outline: none; background: white; }
+
+    .checkbox-group { display: flex; align-items: center; gap: 0.5rem; background: #fef2f2; border: 1px solid #fecaca; padding: 0.8rem 1rem; border-radius: 8px; margin-bottom: 1rem; }
+    .checkbox-group input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent-red); cursor: pointer; }
+
+    .btn { padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: bold; border: none; cursor: pointer; transition: all 0.2s; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-success { background: var(--success); color: white; }
+    .btn-warning { background: var(--warning); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-secondary { background: var(--text-muted); color: white; }
+
+    .card-tags { display: flex; gap: 0.4rem; margin-bottom: 0.8rem; flex-wrap: wrap; align-items: center; }
+    .tag { background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.5rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600; }
+    .tag-featured { background: #fee2e2; color: #991b1b; }
+    .card-content { white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6; color: #334155; background: #f8fafc; padding: 0.9rem; border-radius: 8px; border: 1px solid #f1f5f9; word-break: break-all; margin-bottom: 0.8rem; }
+
+    /* Modal 彈窗樣式 */
+    .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; padding: 1rem; }
+    .modal-content { background: white; padding: 1.5rem; border-radius: 16px; width: 100%; max-width: 480px; box-shadow: 0 10px 20px rgba(0,0,0,0.15); }
+  </style>
+</head>
+<body>
+
+<div class="admin-container">
+  
+  <div class="header-bar">
+    <div class="header-title">🛠️ 飛趣旅遊 - 後台方案管理系統</div>
+    <button class="btn btn-secondary" onclick="window.close()">關閉後台</button>
+  </div>
+
+  <!-- 1. 快速文字提取與方案編輯區 -->
+  <div id="extractSection" class="card">
+    <h3 style="margin-bottom: 1rem;">⚡ 快速文字自動提取與編輯</h3>
+
+    <!-- 覆蓋編輯模式提示條 -->
+    <div id="editingNotice" class="notice-bar" style="display: none;">
+      <div>
+        <strong>⚠️ 覆蓋編輯模式：</strong> 目前正在編輯 <span id="editingPlanInfo" style="color: var(--danger); font-weight: bold;"></span>
+      </div>
+      <button class="btn btn-secondary" onclick="cancelEditingState()">取消編輯</button>
+    </div>
+
+    <div class="checkbox-group">
+      <input type="checkbox" id="addIsFeatured">
+      <label for="addIsFeatured">🔥 直接置入中間輪播位置 (急票出清 最殺價格)</label>
+    </div>
+
+    <div class="form-group" style="background: #f0fdf4; padding: 1rem; border-radius: 8px; border: 1px solid #bbf7d0;">
+      <label style="color: #166534; font-weight:bold;">貼上原始文案：</label>
+      <textarea id="rawTextImport" rows="4" placeholder="貼上文案後，點擊下方「自動解析內容」按鈕..."></textarea>
+      <button type="button" class="btn btn-success" style="width:100%; margin-top: 0.5rem;" onclick="autoParseContent()">⚡ 自動解析內容與日期年份</button>
+    </div>
+
+    <form id="planForm" onsubmit="handleFormSubmit(event)">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.8rem;">
+        <div class="form-group">
+          <label>目的地 (地點)</label>
+          <input type="text" id="addLocation" required placeholder="如：北九州">
+        </div>
+        <div class="form-group">
+          <label>出發地</label>
+          <input type="text" id="addDeparture" required placeholder="如：台中、桃園">
+        </div>
+        <div class="form-group">
+          <label>出發日期</label>
+          <input type="text" id="addDate" required placeholder="如：2026-09-06, 2026-09-08">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>完整方案內容</label>
+        <textarea id="addFullContent" rows="5" required placeholder="完整方案內容..."></textarea>
+      </div>
+      <button type="submit" id="submitBtn" class="btn btn-primary" style="width: 100%;">確定匯入/覆蓋方案</button>
+    </form>
+  </div>
+
+  <!-- 2. 目前所有方案列表 -->
+  <div class="card">
+    <h3 style="margin-bottom: 1rem;">📋 目前所有方案列表</h3>
+    <div id="adminCardsContainer">載入中...</div>
+  </div>
+
+</div>
+
+<!-- 重複方案審查對話框 (Modal) -->
+<div id="duplicateModal" class="modal">
+  <div class="modal-content">
+    <h3 style="color: var(--danger); margin-bottom: 0.8rem;">⚠️ 偵測到重複方案！</h3>
+    <p id="duplicateModalMsg" style="margin-bottom: 1rem; line-height: 1.5; color: #334155;"></p>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">系統偵測到相同「出發地、目的地與日期」的資料，請選擇處理方式：</p>
+    <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+      <button id="btnModalOverwrite" class="btn btn-danger">覆蓋舊方案</button>
+      <button id="btnModalCreate" class="btn btn-primary">新增為新方案</button>
+      <button class="btn btn-secondary" onclick="closeDuplicateModal()">取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_URL = "https://script.google.com/macros/s/AKfycbyVszursrPHmWTGaXa8BMpWf4_bwtorTi8k_V4S2s6wkBRCnUS-6PFAhj2gb6ULgsBR/exec";
+  
+  let allProducts = [];
+  let currentEditingRowIndex = null; // 當前編輯資料在 Google Sheet 的 rowIndex
+  let pendingPayload = null;         // 暫存審查資料
+
+  window.onload = () => {
+    loadData();
+  };
+
+  async function loadData() {
+    const container = document.getElementById("adminCardsContainer");
+    container.innerHTML = "載入中...";
+    try {
+      const res = await fetch(API_URL);
+      const data = await res.json();
+      allProducts = data.map(item => ({
+        ...item,
+        dates: parseDateList(item.date),
+        isFeatured: item.isFeatured === true || item.isFeatured === "true" || item.isFeatured === 1
+      }));
+      renderAdminCards();
+    } catch (err) {
+      container.innerHTML = `<p style="color:var(--danger);">載入資料失敗：${err}</p>`;
+    }
+  }
+
+  function parseDateList(rawDateStr) {
+    if (!rawDateStr) return [];
+    return String(rawDateStr).split(/[,，\n]/).map(d => d.trim().split("T")[0]).filter(Boolean);
+  }
+
+  function renderAdminCards() {
+    const container = document.getElementById("adminCardsContainer");
+    if (allProducts.length === 0) {
+      container.innerHTML = '<p style="color: var(--text-muted);">目前無任何方案。</p>';
+      return;
+    }
+
+    container.innerHTML = allProducts.map(item => `
+      <div class="card" style="margin-bottom: 1rem;">
+        <div class="card-tags">
+          ${item.isFeatured ? '<span class="tag tag-featured">🔥 輪播中</span>' : ''}
+          <span class="tag">🛫 出發：${escapeText(item.departure)}</span>
+          <span class="tag">📍 地點：${escapeText(item.location)}</span>
+          <span class="tag">📅 日期：${escapeText(item.dates.join(", "))}</span>
+          <label style="margin-left: auto; font-size: 0.85rem; font-weight: bold; color: var(--accent-red); display: flex; align-items: center; gap: 0.3rem;">
+            <input type="checkbox" ${item.isFeatured ? 'checked' : ''} onchange="toggleFeatured(${item.rowIndex}, this.checked)"> 加入輪播
+          </label>
+        </div>
+        <div class="card-content">${escapeHtml(item.fullContent)}</div>
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+          <button class="btn btn-warning" onclick="onClickEditPlan(${item.rowIndex})">✏️ 編輯/覆蓋</button>
+          <button class="btn btn-danger" onclick="deleteProduct(${item.rowIndex})">🗑️ 刪除</button>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  // 點擊「編輯/覆蓋」：帶入資料並滾動至頂部
+  function onClickEditPlan(rowIndex) {
+    const target = allProducts.find(p => p.rowIndex === rowIndex);
+    if (!target) return;
+
+    currentEditingRowIndex = rowIndex;
+    document.getElementById("addLocation").value = target.location || "";
+    document.getElementById("addDeparture").value = target.departure || "";
+    document.getElementById("addDate").value = target.dates.join(", ") || target.date || "";
+    document.getElementById("addFullContent").value = target.fullContent || "";
+    document.getElementById("addIsFeatured").checked = target.isFeatured;
+
+    document.getElementById("editingPlanInfo").innerText = `[第 ${rowIndex} 列] ${target.departure} ➔ ${target.location}`;
+    document.getElementById("editingNotice").style.display = "flex";
+    document.getElementById("submitBtn").innerText = "確定覆蓋方案";
+
+    document.getElementById("extractSection").scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function cancelEditingState() {
+    currentEditingRowIndex = null;
+    document.getElementById("editingNotice").style.display = "none";
+    document.getElementById("planForm").reset();
+    document.getElementById("rawTextImport").value = "";
+    document.getElementById("submitBtn").innerText = "確定匯入/覆蓋方案";
+  }
+
+  // 自動解析文案
+  function autoParseContent() {
+    const rawText = document.getElementById("rawTextImport").value;
+    if (!rawText.trim()) { alert("請先貼上文案內容！"); return; }
+
+    document.getElementById("addFullContent").value = rawText;
+    const depMatch = rawText.match(/(桃園|台中|高雄|松山|台北)/);
+    if (depMatch) document.getElementById("addDeparture").value = depMatch[1];
+
+    const locMatch = rawText.match(/(北九州|東京|石垣島|大阪|沖繩|京都|北海道|福岡|首爾|釜山)/);
+    if (locMatch) document.getElementById("addLocation").value = locMatch[1];
+
+    const dateRegex = /(1[0-2]|0?[1-9])\/([0-3]?[0-9])/g;
+    let match;
+    const parsedDates = new Set();
+    while ((match = dateRegex.exec(rawText)) !== null) {
+      let month = parseInt(match[1], 10);
+      let day = parseInt(match[2], 10);
+      let year = (month < 8) ? 2027 : 2026;
+      parsedDates.add(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
+    }
+
+    if (parsedDates.size > 0) {
+      document.getElementById("addDate").value = Array.from(parsedDates).join(", ");
+      alert(`解析成功！共提取出 ${parsedDates.size} 個日期。`);
+    } else {
+      alert("未成功自動偵測到日期，請手動確認與填寫。");
+    }
+  }
+
+  // 表單送出處置
+  async function handleFormSubmit(e) {
+    e.preventDefault();
+
+    const payload = {
+      action: currentEditingRowIndex !== null ? "update" : "create",
+      rowIndex: currentEditingRowIndex,
+      location: document.getElementById("addLocation").value,
+      departure: document.getElementById("addDeparture").value,
+      date: document.getElementById("addDate").value,
+      fullContent: document.getElementById("addFullContent").value,
+      isFeatured: document.getElementById("addIsFeatured").checked
+    };
+
+    if (currentEditingRowIndex !== null) {
+      // 編輯模式 -> 直接覆蓋更新
+      await saveProduct(payload, "覆蓋");
+    } else {
+      // 新增模式 -> 檢查是否有相同條件的方案
+      const duplicate = allProducts.find(p => 
+        p.departure === payload.departure &&
+        p.location === payload.location &&
+        p.date === payload.date
+      );
+
+      if (duplicate) {
+        pendingPayload = payload;
+        openDuplicateModal(duplicate);
+      } else {
+        await saveProduct(payload, "匯入");
+      }
+    }
+  }
+
+  function openDuplicateModal(existingPlan) {
+    const modal = document.getElementById("duplicateModal");
+    const msg = document.getElementById("duplicateModalMsg");
+    msg.innerHTML = `系統內已存在相同條件的方案：<br><strong>[第 ${existingPlan.rowIndex} 列] ${existingPlan.departure} ➔ ${existingPlan.location} (${existingPlan.date})</strong>`;
+    modal.style.display = "flex";
+
+    document.getElementById("btnModalOverwrite").onclick = async () => {
+      pendingPayload.action = "update";
+      pendingPayload.rowIndex = existingPlan.rowIndex;
+      closeDuplicateModal();
+      await saveProduct(pendingPayload, "覆蓋");
+    };
+
+    document.getElementById("btnModalCreate").onclick = async () => {
+      pendingPayload.action = "create";
+      closeDuplicateModal();
+      await saveProduct(pendingPayload, "新增");
+    };
+  }
+
+  function closeDuplicateModal() {
+    document.getElementById("duplicateModal").style.display = "none";
+    pendingPayload = null;
+  }
+
+  async function saveProduct(payload, actionName) {
+    const submitBtn = document.getElementById("submitBtn");
+    submitBtn.disabled = true;
+    submitBtn.innerText = "處理中...";
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      const result = await res.json();
+
+      if (result.status === "success") {
+        alert(`方案已成功${actionName}！`);
+        cancelEditingState();
+        await loadData();
+      } else {
+        alert(`${actionName}失敗：` + (result.message || "未知錯誤"));
+      }
+    } catch (err) {
+      alert(`${actionName}異常：${err}`);
+    } finally {
+      submitBtn.disabled = false;
+    }
+  }
+
+  async function toggleFeatured(rowIndex, isFeatured) {
+    try {
+      await fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "toggleFeatured", rowIndex: rowIndex, isFeatured: isFeatured })
+      });
+      const product = allProducts.find(p => p.rowIndex === rowIndex);
+      if (product) product.isFeatured = isFeatured;
+      renderAdminCards();
+    } catch (err) {
+      alert("更新輪播狀態失敗：" + err);
+    }
+  }
+
+  async function deleteProduct(rowIndex) {
+    if (!confirm("確定要移除此方案嗎？")) return;
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "delete", rowIndex: rowIndex })
+      });
+      const result = await res.json();
+      if (result.status === "success") {
+        alert("方案已移除！");
+        await loadData();
+      } else {
+        alert("移除失敗：" + result.message);
+      }
+    } catch (err) {
+      alert("移除異常：" + err);
+    }
+  }
+
+  function escapeText(str) { return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function escapeHtml(str) { return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>"); }
+</script>
+</body>
+</html>
